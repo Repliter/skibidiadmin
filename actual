@@ -1,0 +1,697 @@
+-- Create a ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MyScreenGui"
+screenGui.Parent = game.CoreGui
+
+-- Create a Frame to hold the TextBox and Title
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 150) -- Increased height to 150
+frame.Position = UDim2.new(0.5, -150, 0.5, -75)
+frame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+-- Create a Title label
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -20, 0, 50) -- Set size for title
+titleLabel.Position = UDim2.new(0, 10, 0, 10)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Skibidi Admin"
+titleLabel.TextColor3 = Color3.new(1, 1, 1)
+titleLabel.TextSize = 20
+titleLabel.Font = Enum.Font.SourceSans
+titleLabel.Parent = frame
+
+-- Create a TextBox
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(1, -20, 0, 50)
+textBox.Position = UDim2.new(0, 10, 0, 70) -- Adjusted position to fit below title
+textBox.BackgroundColor3 = Color3.new(1, 1, 1)
+textBox.Text = ""
+textBox.TextColor3 = Color3.new(0, 0, 0)
+textBox.TextSize = 14
+textBox.ClearTextOnFocus = false
+textBox.Parent = frame
+
+-- Make the Frame draggable
+local dragging = false
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        update(input)
+    end
+end)
+
+-- Detect keypress to focus the TextBox
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Semicolon then
+        textBox:CaptureFocus()
+    end
+end)
+
+-- Command registration system
+local commands = {}
+
+function addCommand(name, description, func)
+    commands[name] = {description = description, func = func}
+end
+
+-- Example command
+addCommand("ws", "Change walk speed", function(args)
+    local speed = tonumber(args[2]) or 16
+    local player = game.Players.LocalPlayer
+    local char = player.Character or workspace:FindFirstChild(player.Name)
+    local humanoid = char and char:FindFirstChildWhichIsA("Humanoid")
+
+    if humanoid then
+        humanoid.WalkSpeed = speed
+    end
+end)
+
+-- Create an autofill frame
+local autofillFrame = Instance.new("Frame")
+autofillFrame.Size = UDim2.new(1, 0, 0, 100)
+autofillFrame.Position = UDim2.new(0, 0, 1, 0)
+autofillFrame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+autofillFrame.Visible = false
+autofillFrame.Parent = textBox
+
+local autofillText = Instance.new("TextLabel")
+autofillText.Size = UDim2.new(1, -10, 1, -10)
+autofillText.Position = UDim2.new(0, 5, 0, 5)
+autofillText.BackgroundTransparency = 1
+autofillText.TextColor3 = Color3.new(1, 1, 1)
+autofillText.TextWrapped = true
+autofillText.Text = ""
+autofillText.Parent = autofillFrame
+
+textBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local text = textBox.Text:lower()
+    if text == "" then
+        autofillFrame.Visible = false
+        return
+    end
+
+    local suggestions = {}
+    for name, _ in pairs(commands) do
+        if string.find(name:lower(), text) then
+            table.insert(suggestions, name)
+        end
+    end
+
+    if #suggestions > 0 then
+        autofillFrame.Visible = true
+        autofillText.Text = table.concat(suggestions, "\n")
+    else
+        autofillFrame.Visible = false
+    end
+end)
+
+-- Create a command list frame
+local commandListFrame = Instance.new("Frame")
+commandListFrame.Size = UDim2.new(0, 300, 0, 400)
+commandListFrame.Position = UDim2.new(0, frame.AbsolutePosition.X - 310, 0.5, -200) -- Positioned to the left of the main frame
+commandListFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+commandListFrame.BorderSizePixel = 0
+commandListFrame.Visible = false
+commandListFrame.Parent = screenGui
+
+-- Create a close button for commandListFrame
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -40, 0, 10)
+closeButton.BackgroundColor3 = Color3.new(1, 0, 0)
+closeButton.TextColor3 = Color3.new(1, 1, 1)
+closeButton.Text = "X"
+closeButton.Parent = commandListFrame
+
+closeButton.MouseButton1Click:Connect(function()
+    commandListFrame.Visible = false
+end)
+
+-- Add a scrolling feature to the command list
+local scrollingFrame = Instance.new("ScrollingFrame")
+scrollingFrame.Size = UDim2.new(1, 0, 1, -40) -- Adjust to fit below the close button
+scrollingFrame.Position = UDim2.new(0, 0, 0, 40)
+scrollingFrame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+scrollingFrame.BorderSizePixel = 0
+scrollingFrame.CanvasSize = UDim2.new(0, 0, 1, 0)
+scrollingFrame.Parent = commandListFrame
+
+local commandListText = Instance.new("TextLabel")
+commandListText.Size = UDim2.new(1, -10, 1, -10)
+commandListText.Position = UDim2.new(0, 5, 0, 5)
+commandListText.BackgroundTransparency = 1
+commandListText.TextColor3 = Color3.new(1, 1, 1)
+commandListText.TextWrapped = true
+commandListText.Text = ""
+commandListText.Parent = scrollingFrame
+
+-- Handle TextBox input
+textBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local text = textBox.Text
+        local args = string.split(text, " ")
+
+        if args[1] == "cmds" then
+            local list = ""
+            for name, cmd in pairs(commands) do
+                list = list .. name .. ": " .. cmd.description .. "\n"
+            end
+            commandListText.Text = list
+            commandListFrame.Visible = true
+            scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, commandListText.TextBounds.Y) -- Update canvas size
+        else
+            commandListFrame.Visible = false
+
+            local cmd = commands[args[1]]
+            if cmd then
+                cmd.func(args)
+            end
+        end
+
+        textBox.Text = ""
+    end
+end)
+
+-- Teleport command with partial username matching
+addCommand("to", "Teleport to a player", function(args)
+    local partialName = args[2]
+    if not partialName then
+        return
+    end
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character or workspace:FindFirstChild(player.Name)
+    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+
+    if rootPart then
+        local targetPlayer = nil
+        partialName = partialName:lower()
+
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p.Name:lower():sub(1, #partialName) == partialName then
+                targetPlayer = p
+                break
+            end
+        end
+
+        if targetPlayer then
+            local targetChar = targetPlayer.Character or workspace:FindFirstChild(targetPlayer.Name)
+            local targetRootPart = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+
+            if targetRootPart then
+                rootPart.CFrame = targetRootPart.CFrame
+            end
+        end
+    end
+end)
+
+-- Fly command
+local flying = false
+local flySpeed = 50
+local upKey = Enum.KeyCode.Q
+local downKey = Enum.KeyCode.E
+local forwardKey = Enum.KeyCode.W
+local backwardKey = Enum.KeyCode.S
+local leftKey = Enum.KeyCode.A
+local rightKey = Enum.KeyCode.D
+local flyConnection
+
+local function startFlying()
+    flying = true
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character or workspace:FindFirstChild(player.Name)
+    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+
+    if rootPart then
+        -- Enable flying
+        local bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.P = 9e4
+        bodyGyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bodyGyro.cframe = rootPart.CFrame
+        bodyGyro.Parent = rootPart
+
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.maxForce = Vector3.new(9e9, 9e9, 9e9)
+        bodyVelocity.Parent = rootPart
+
+        flyConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            local newVelocity = Vector3.new(0, 0, 0)
+            
+            if game:GetService("UserInputService"):IsKeyDown(upKey) then
+                newVelocity = newVelocity + Vector3.new(0, flySpeed, 0)
+            end
+            if game:GetService("UserInputService"):IsKeyDown(downKey) then
+                newVelocity = newVelocity + Vector3.new(0, -flySpeed, 0)
+            end
+            if game:GetService("UserInputService"):IsKeyDown(forwardKey) then
+                newVelocity = newVelocity + (workspace.CurrentCamera.CFrame.LookVector * flySpeed)
+            end
+            if game:GetService("UserInputService"):IsKeyDown(backwardKey) then
+                newVelocity = newVelocity - (workspace.CurrentCamera.CFrame.LookVector * flySpeed)
+            end
+            if game:GetService("UserInputService"):IsKeyDown(leftKey) then
+                newVelocity = newVelocity - (workspace.CurrentCamera.CFrame.RightVector * flySpeed)
+            end
+            if game:GetService("UserInputService"):IsKeyDown(rightKey) then
+                newVelocity = newVelocity + (workspace.CurrentCamera.CFrame.RightVector * flySpeed)
+            end
+            
+            bodyGyro.cframe = workspace.CurrentCamera.CFrame
+            bodyVelocity.velocity = newVelocity
+        end)
+    end
+end
+
+local function stopFlying()
+    flying = false
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character or workspace:FindFirstChild(player.Name)
+    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+
+    if rootPart then
+        -- Disable flying
+        if rootPart:FindFirstChild("BodyGyro") then
+            rootPart.BodyGyro:Destroy()
+        end
+        if rootPart:FindFirstChild("BodyVelocity") then
+            rootPart.BodyVelocity:Destroy()
+        end
+        if flyConnection then
+            flyConnection:Disconnect()
+        end
+    end
+end
+
+addCommand("fly", "Toggle fly mode", function()
+    if flying then
+        stopFlying()
+    else
+        startFlying()
+    end
+end)
+
+addCommand("unfly", "Stop flying", function()
+    if flying then
+        stopFlying()
+    end
+end)
+
+-- Noclip command
+local noclipping = false
+local noclipConnection
+
+local function startNoclip()
+    noclipping = true
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character or workspace:FindFirstChild(player.Name)
+
+    if char then
+        noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+            for _, part in pairs(char:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end)
+    end
+end
+
+local function stopNoclip()
+    noclipping = false
+
+    if noclipConnection then
+        noclipConnection:Disconnect()
+    end
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character or workspace:FindFirstChild(player.Name)
+
+    if char then
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+addCommand("noclip", "Enable noclip mode", function()
+    if not noclipping then
+        startNoclip()
+    end
+end)
+
+addCommand("clip", "Disable noclip mode", function()
+    if noclipping then
+        stopNoclip()
+    end
+end)
+
+local espEnabled = false
+local espConnections = {}
+local playerEspGuis = {}
+
+local function createEsp(player)
+    local function setupEsp()
+        local char = player.Character
+        if not char then return end
+
+        local rootPart = char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+
+        if not rootPart or not humanoid then return end
+
+        -- Create BillboardGui for the text display
+        local billboardGui = Instance.new("BillboardGui")
+        billboardGui.Name = "EspGui"
+        billboardGui.Adornee = rootPart
+        billboardGui.Size = UDim2.new(4, 0, 5, 0)
+        billboardGui.AlwaysOnTop = true
+        billboardGui.Parent = game.CoreGui
+
+        -- Create frame for the ESP text
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, 0, 1, 0)
+        frame.BackgroundTransparency = 1
+        frame.BorderSizePixel = 0
+        frame.Parent = billboardGui
+
+        -- Create TextLabel for username and health
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(2, 0, 0.2, 0)
+        textLabel.Position = UDim2.new(0, 0, -0.2, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = Color3.new(1, 1, 1)
+        textLabel.TextStrokeTransparency = 0.5
+        textLabel.TextScaled = true
+        textLabel.Text = player.Name .. " (" .. math.floor(humanoid.Health) .. ")"
+        textLabel.Parent = billboardGui
+
+        -- Update the health display
+        local healthChangedConnection = humanoid.HealthChanged:Connect(function()
+            textLabel.Text = player.Name .. " (" .. math.floor(humanoid.Health) .. ")"
+        end)
+
+        table.insert(espConnections, healthChangedConnection)
+        playerEspGuis[player] = {billboardGui, healthChangedConnection}
+
+        -- Attach boxes to each limb
+        local limbs = {"Head", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "Torso"}
+        for _, limbName in pairs(limbs) do
+            local limb = char:FindFirstChild(limbName)
+            if limb then
+                local limbBox = Instance.new("BoxHandleAdornment")
+                limbBox.Adornee = limb
+                limbBox.Size = limb.Size
+                limbBox.Color3 = player.Team and player.Team.TeamColor.Color or Color3.new(1, 1, 1)
+                limbBox.Transparency = 0.5
+                limbBox.ZIndex = 1
+                limbBox.AlwaysOnTop = true
+                limbBox.Parent = game.CoreGui
+                table.insert(playerEspGuis[player], limbBox)
+            end
+        end
+
+        -- Update the text size based on distance
+        local distanceUpdateConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            local localPlayer = game.Players.LocalPlayer
+            local localChar = localPlayer.Character
+            local localRootPart = localChar and localChar:FindFirstChild("HumanoidRootPart")
+
+            if localRootPart then
+                local distance = (localRootPart.Position - rootPart.Position).Magnitude
+                textLabel.TextSize = 18 * (distance / 50) -- Scale the text size based on distance
+            end
+        end)
+
+        table.insert(espConnections, distanceUpdateConnection)
+        table.insert(playerEspGuis[player], distanceUpdateConnection)
+    end
+
+    if player.Character then
+        setupEsp()
+    end
+
+    table.insert(espConnections, player.CharacterAdded:Connect(setupEsp))
+end
+
+local function removeEsp(player)
+    local espData = playerEspGuis[player]
+    if espData then
+        espData[1]:Destroy()  -- Remove the BillboardGui
+        espData[2]:Disconnect()  -- Disconnect the healthChangedConnection
+        for i = 3, #espData do  -- Remove the limb boxes and distance update connection
+            if typeof(espData[i]) == "Instance" then
+                espData[i]:Destroy()
+            else
+                espData[i]:Disconnect()
+            end
+        end
+        playerEspGuis[player] = nil
+    end
+end
+
+local function onCharacterAdded(character)
+    local player = game.Players:GetPlayerFromCharacter(character)
+    if player and espEnabled then
+        createEsp(player)
+    end
+end
+
+addCommand("esp", "Enable ESP", function()
+    if espEnabled then return end
+    espEnabled = true
+
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            createEsp(player)
+        end
+        table.insert(espConnections, player.CharacterAdded:Connect(function(char)
+            onCharacterAdded(char)
+        end))
+        table.insert(espConnections, player.CharacterRemoving:Connect(function()
+            removeEsp(player)
+        end))
+    end
+
+    table.insert(espConnections, game.Players.PlayerAdded:Connect(function(player)
+        if espEnabled then
+            table.insert(espConnections, player.CharacterAdded:Connect(onCharacterAdded))
+        end
+    end))
+
+    table.insert(espConnections, game.Players.PlayerRemoving:Connect(function(player)
+        removeEsp(player)
+    end))
+end)
+
+addCommand("unesp", "Disable ESP", function()
+    if not espEnabled then return end
+    espEnabled = false
+
+    for player, _ in pairs(playerEspGuis) do
+        removeEsp(player)
+    end
+
+    for _, connection in pairs(espConnections) do
+        connection:Disconnect()
+    end
+
+    espConnections = {}
+end)
+
+
+-- Command to close or kill the GUI
+addCommand("fuckoff", "Closes the GUI and kills it", function()
+    -- Clean up all ESP elements if enabled
+    if espEnabled then
+        for player, _ in pairs(playerEspGuis) do
+            removeEsp(player)
+        end
+
+        for _, connection in pairs(espConnections) do
+            connection:Disconnect()
+        end
+
+        espConnections = {}
+        espEnabled = false
+    end
+
+    -- Remove the main GUI
+    if screenGui then
+        screenGui:Destroy()
+    end
+
+    -- Disconnect all connections to avoid memory leaks
+    for _, connection in pairs(commandConnections) do
+        connection:Disconnect()
+    end
+
+    -- Clear other related variables if any
+    commands = {}
+    playerEspGuis = {}
+    print("GUI closed and script killed.")
+end)
+
+-- Fling command
+local flinging = false
+local flingConnection
+
+addCommand("fling", "Toggle fling mode", function()
+    local player = game.Players.LocalPlayer
+    local char = player.Character or workspace:FindFirstChild(player.Name)
+    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+
+    if not char or not rootPart then return end
+
+    -- Set custom physical properties
+    for _, child in pairs(char:GetDescendants()) do
+        if child:IsA("BasePart") then
+            child.CustomPhysicalProperties = PhysicalProperties.new(math.huge, 0.3, 0.5)
+        end
+    end
+
+    -- Enable noclip
+    commands["noclip"].func()
+
+    -- Wait briefly to ensure noclip is enabled
+    wait(0.1)
+
+    -- Create BodyAngularVelocity to spin the character
+    local bambam = Instance.new("BodyAngularVelocity")
+    bambam.Name = "FlingBambam"
+    bambam.Parent = rootPart
+    bambam.AngularVelocity = Vector3.new(0, 99999, 0)
+    bambam.MaxTorque = Vector3.new(0, math.huge, 0)
+    bambam.P = math.huge
+
+    -- Create BodyGyro to keep the character upright
+    local gyro = Instance.new("BodyGyro")
+    gyro.Parent = rootPart
+    gyro.MaxTorque = Vector3.new(400000, 0, 400000)
+    gyro.P = 3000
+    gyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Vector3.new(0, 1, 0))
+
+    -- Set all BaseParts to be non-collidable and massless
+    for _, v in pairs(char:GetChildren()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = false
+            v.Massless = true
+            v.Velocity = Vector3.new(0, 0, 0)
+        end
+    end
+
+    flinging = true
+
+    -- Function to handle the character's death
+    local function flingDiedF()
+        commands["unfling"].func()
+    end
+
+    -- Connect the character's death event to the function
+    local flingDied = char:FindFirstChildOfClass('Humanoid').Died:Connect(flingDiedF)
+
+    -- Repeatedly adjust AngularVelocity to maintain the flinging effect
+    flingConnection = game:GetService("RunService").RenderStepped:Connect(function()
+        if flinging then
+            bambam.AngularVelocity = Vector3.new(0, 99999, 0)
+            gyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Vector3.new(0, 1, 0))
+        end
+    end)
+end)
+
+-- Unfling command
+addCommand("unfling", "Stop flinging", function()
+    flinging = false
+
+    -- Temporarily enable noclip
+    commands["noclip"].func()
+
+    -- Wait briefly to ensure noclip is enabled
+    wait(0.1)
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character or workspace:FindFirstChild(player.Name)
+    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+
+    if not char or not rootPart then return end
+
+    -- Create BodyAngularVelocity to spin in the opposite direction
+    local counterSpin = Instance.new("BodyAngularVelocity")
+    counterSpin.Name = "CounterSpin"
+    counterSpin.Parent = rootPart
+    counterSpin.AngularVelocity = Vector3.new(0, -99999, 0) -- Opposite direction to counteract the spin
+    counterSpin.MaxTorque = Vector3.new(0, math.huge, 0)
+    counterSpin.P = math.huge
+
+    -- Create BodyGyro to stabilize the character
+    local stabilizer = Instance.new("BodyGyro")
+    stabilizer.Parent = rootPart
+    stabilizer.MaxTorque = Vector3.new(400000, 400000, 400000)
+    stabilizer.P = 3000
+    stabilizer.CFrame = rootPart.CFrame
+
+    -- Remove BodyAngularVelocity and BodyGyro
+    for i, v in pairs(rootPart:GetChildren()) do
+        if v.ClassName == 'BodyAngularVelocity' and v.Name ~= 'CounterSpin' then
+            v:Destroy()
+        end
+    end
+
+    -- Reset custom physical properties
+    for _, child in pairs(char:GetDescendants()) do
+        if child:IsA("BasePart") then
+            child.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5)
+        end
+    end
+
+    -- Re-enable collisions for all BaseParts
+    for _, v in pairs(char:GetChildren()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = true
+            v.Massless = false
+        end
+    end
+
+    -- Wait longer before removing the stabilizer and disabling noclip
+    wait(0.5) -- Shorter wait time to stop the counter-spin faster
+    counterSpin:Destroy()
+    stabilizer:Destroy()
+    commands["clip"].func()
+end)
+
+
